@@ -38,24 +38,10 @@ def play(rate, wav):
         dtype = 'float32',
     )
 
-
     # Write the samples.
     stream.start()
-    w = iter(wav)
     done = False
-    while not done:
-        if channels == 1:
-            dims = BUFFER_SIZE
-        else:
-            dims = (BUFFER_SIZE, 2)
-        buffer = np.zeros(dims, dtype=np.float32)
-        for i in range(BUFFER_SIZE):
-            try:
-                sample = next(w)
-            except StopIteration:
-                done = True
-                break
-            buffer[i] = sample
+    for buffer in np.array_split(wav, BUFFER_SIZE):
         stream.write(buffer)
 
     # Tear down the stream.
