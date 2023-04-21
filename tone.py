@@ -6,7 +6,7 @@
 # Solution to CS 410P/510 Sound HW2: Tone
 
 import argparse, math, sys, time
-from scipy.io import wavfile
+from scipy import io, signal
 import numpy as np
 import sounddevice as sd
 
@@ -17,7 +17,7 @@ BUFFER_SIZE = 2048
 
 # Read from a 16-bit WAV file. Returns 
 def read_wav(filename):
-    rate, data = wavfile.read(filename)
+    rate, data = io.wavfile.read(filename)
     assert data.dtype == np.int16
     data = data.astype(np.float32)
     data /= 32768
@@ -48,6 +48,13 @@ def play(rate, wav):
     stream.stop()
     stream.close()
 
-# Get tone generator.
-rate, data = read_wav(sys.argv[1])
+# Parse command-line arguments.
+argp = argparse.ArgumentParser()
+argp.add_argument("--bass", help="bass emphasis", type=np.float32, default=0)
+argp.add_argument("--midrange", help="midrange emphasis", type=np.float32, default=0)
+argp.add_argument("--treble", help="treble emphasis", type=np.float32, default=0)
+argp.add_argument("wav", help="audio file")
+args = argp.parse_args()
+
+rate, data = read_wav(args.wav)
 play(rate, data)
