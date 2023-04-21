@@ -25,21 +25,30 @@ def read_wav(filename):
 
 # Play a tone on the computer.
 def play(rate, wav):
+    # Deal with stereo.
+    channels = 1
+    if wav.ndim == 2:
+        channels = 2
 
     # Set up and start the stream.
     stream = sd.RawOutputStream(
         samplerate = rate,
         blocksize = BUFFER_SIZE,
-        channels = 1,
+        channels = channels,
         dtype = 'float32',
     )
 
+
     # Write the samples.
     stream.start()
-    w = np.nditer(wav)
+    w = iter(wav)
     done = False
     while not done:
-        buffer = np.zeros(BUFFER_SIZE, dtype=np.float32)
+        if channels == 1:
+            dims = BUFFER_SIZE
+        else:
+            dims = (BUFFER_SIZE, 2)
+        buffer = np.zeros(dims, dtype=np.float32)
         for i in range(BUFFER_SIZE):
             try:
                 sample = next(w)
