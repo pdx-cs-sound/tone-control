@@ -5,7 +5,7 @@
 
 # Solution to CS 410P/510 Sound HW2: Tone
 
-import argparse, math, sys, time
+import argparse
 from scipy import io, signal
 import numpy as np
 import sounddevice as sd
@@ -65,10 +65,10 @@ rate, in_data = read_wav(args.wav)
 def make_filter(freqs, btype):
     global rate
     freqs = 2.0 * np.array(freqs, dtype=np.float64) / rate
-    return signal.firwin(127, freqs, pass_zero=btype)
+    return signal.firwin(255, freqs, pass_zero=btype)
 
-filter_bass = make_filter(200, 'lowpass')
-filter_mid = make_filter((200, 2500), 'bandpass')
+filter_bass = make_filter(150, 'lowpass')
+filter_mid = make_filter((150, 2500), 'bandpass')
 filter_treble = make_filter(2500, 'highpass')
 
 # Apply filters.
