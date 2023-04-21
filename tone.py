@@ -52,9 +52,42 @@ def play(rate, wav):
 
 # Parse command-line arguments.
 argp = argparse.ArgumentParser()
-argp.add_argument("--bass", help="bass emphasis", type=np.float32, default=0.5)
-argp.add_argument("--midrange", help="midrange emphasis", type=np.float32, default=0.5)
-argp.add_argument("--treble", help="treble emphasis", type=np.float32, default=0.5)
+argp.add_argument(
+    "--bass",
+    help="bass emphasis",
+    type=np.float64,
+    default=0.5,
+)
+argp.add_argument(
+    "--midrange",
+    help="midrange emphasis",
+    type=np.float64,
+    default=0.5,
+)
+argp.add_argument(
+    "--treble",
+    help="treble emphasis",
+    type=np.float64,
+    default=0.5,
+)
+argp.add_argument(
+    "--split1",
+    help="bass/mid split frequency",
+    type=np.float64,
+    default=150,
+)
+argp.add_argument(
+    "--split2",
+    help="mid/treble split frequency",
+    type=np.float64,
+    default=2500,
+)
+argp.add_argument(
+    "--fir",
+    help="FIR filter width (must be odd)",
+    type=int,
+    default=127,
+)
 argp.add_argument("wav", help="audio file")
 args = argp.parse_args()
 
@@ -65,11 +98,11 @@ rate, in_data = read_wav(args.wav)
 def make_filter(freqs, btype):
     global rate
     freqs = 2.0 * np.array(freqs, dtype=np.float64) / rate
-    return signal.firwin(255, freqs, pass_zero=btype)
+    return signal.firwin(args.fir, freqs, pass_zero=btype)
 
-filter_bass = make_filter(150, 'lowpass')
-filter_mid = make_filter((150, 2500), 'bandpass')
-filter_treble = make_filter(2500, 'highpass')
+filter_bass = make_filter(args.split1, 'lowpass')
+filter_mid = make_filter((args.split1, args.split2), 'bandpass')
+filter_treble = make_filter(args.split2, 'highpass')
 
 # Apply filters.
 emphasis = (args.bass, args.midrange, args.treble)
