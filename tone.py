@@ -50,11 +50,22 @@ def play(rate, wav):
 
 # Parse command-line arguments.
 argp = argparse.ArgumentParser()
-argp.add_argument("--bass", help="bass emphasis", type=np.float32, default=0)
-argp.add_argument("--midrange", help="midrange emphasis", type=np.float32, default=0)
-argp.add_argument("--treble", help="treble emphasis", type=np.float32, default=0)
+argp.add_argument("--bass", help="bass emphasis", type=np.float32, default=0.5)
+argp.add_argument("--midrange", help="midrange emphasis", type=np.float32, default=0.5)
+argp.add_argument("--treble", help="treble emphasis", type=np.float32, default=0.5)
 argp.add_argument("wav", help="audio file")
 args = argp.parse_args()
 
 rate, data = read_wav(args.wav)
+
+# Build filters.
+def make_filter(freqs, btype):
+    global rate
+    freqs = 2.0 * np.array(freqs, dtype=np.float32) / rate
+    return signal.firwin(1023, freqs, pass_zero=btype)
+
+filter_bass = make_filter(200, 'lowpass')
+filter_mid = make_filter((200, 2500), 'bandpass')
+filter_treble = make_filter(2500, 'highpass')
+
 play(rate, data)
