@@ -19,7 +19,7 @@ BUFFER_SIZE = 2048
 def read_wav(filename):
     rate, data = io.wavfile.read(filename)
     assert data.dtype == np.int16
-    data = data.astype(np.float32)
+    data = data.astype(np.float64)
     data /= 32768
     return rate, data
 
@@ -40,8 +40,10 @@ def play(rate, wav):
 
     # Write the samples.
     stream.start()
-    done = False
-    for buffer in np.array_split(wav, BUFFER_SIZE):
+    # https://stackoverflow.com/a/73368196
+    indices = np.arange(BUFFER_SIZE, wav.shape[0], BUFFER_SIZE)
+    samples = np.ascontiguousarray(wav, dtype=np.float32)
+    for buffer in np.array_split(samples, indices):
         stream.write(buffer)
 
     # Tear down the stream.
@@ -56,16 +58,28 @@ argp.add_argument("--treble", help="treble emphasis", type=np.float32, default=0
 argp.add_argument("wav", help="audio file")
 args = argp.parse_args()
 
-rate, data = read_wav(args.wav)
+# Read WAV.
+rate, in_data = read_wav(args.wav)
 
 # Build filters.
 def make_filter(freqs, btype):
     global rate
-    freqs = 2.0 * np.array(freqs, dtype=np.float32) / rate
-    return signal.firwin(1023, freqs, pass_zero=btype)
+    freqs = 2.0 * np.array(freqs, dtype=np.float64) / rate
+    return signal.firwin(127, freqs, pass_zero=btype)
 
 filter_bass = make_filter(200, 'lowpass')
 filter_mid = make_filter((200, 2500), 'bandpass')
 filter_treble = make_filter(2500, 'highpass')
 
-play(rate, data)
+# Apply filters.
+emphasis = (args.bass, args.midrange, args.treble)
+filters = (filter_bass, filter_mid, filter_treble)
+channels = np.transpose(in_data)
+filtered = np.array(tuple(e * signal.lfilter(f, [1.], channels)
+            for e, f in zip(emphasis, filters)))
+gain = 1.0 / sum(emphasis)
+result = gain * np.sum(filtered, axis=0)
+out_data = np.transpose(result)
+
+# Play result.
+play(rate, out_data)
