@@ -53,22 +53,28 @@ def play(rate, wav):
 # Parse command-line arguments.
 argp = argparse.ArgumentParser()
 argp.add_argument(
+    "--volume",
+    help="volume",
+    type=np.float64,
+    default=9,
+)
+argp.add_argument(
     "--bass",
     help="bass emphasis",
     type=np.float64,
-    default=0.5,
+    default=5,
 )
 argp.add_argument(
     "--midrange",
     help="midrange emphasis",
     type=np.float64,
-    default=0.5,
+    default=5,
 )
 argp.add_argument(
     "--treble",
     help="treble emphasis",
     type=np.float64,
-    default=0.5,
+    default=5,
 )
 argp.add_argument(
     "--split1",
@@ -91,6 +97,16 @@ argp.add_argument(
 argp.add_argument("wav", help="audio file")
 args = argp.parse_args()
 
+# Given a knob setting s (0.0..), return 3 * (s - offset) dB as
+# a gain factor. Exception: knob setting < 0.1 gives gain
+# factor 0, not -3 * offset dB.
+def knob(s, offset=5.0):
+    if s < 0.1:
+        return 0
+    db = 3.0 * (s - offset)
+    a = 10.0 ** (db / 20.0)
+    return a
+
 # Read WAV.
 rate, in_data = read_wav(args.wav)
 
@@ -105,12 +121,12 @@ filter_mid = make_filter((args.split1, args.split2), 'bandpass')
 filter_treble = make_filter(args.split2, 'highpass')
 
 # Apply filters.
-emphasis = (args.bass, args.midrange, args.treble)
+emphasis = (knob(args.bass), knob(args.midrange), knob(args.treble))
 filters = (filter_bass, filter_mid, filter_treble)
 channels = np.transpose(in_data)
 filtered = np.array(tuple(e * signal.lfilter(f, [1.], channels)
             for e, f in zip(emphasis, filters)))
-gain = 1.0 / sum(emphasis)
+gain = knob(args.volume, offset=9.0)
 result = gain * np.sum(filtered, axis=0)
 out_data = np.transpose(result)
 
