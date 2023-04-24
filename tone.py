@@ -54,45 +54,51 @@ def play(rate, wav):
 argp = argparse.ArgumentParser()
 argp.add_argument(
     "--volume",
-    help="volume",
+    help="volume in 3dB units (default 9 = 0dB, 0 = 0 output)",
     type=np.float64,
     default=9,
 )
 argp.add_argument(
     "--bass",
-    help="bass emphasis",
+    help="bass emphasis in 3dB units (default 5 = 0dB, 0 = 0 output)",
     type=np.float64,
     default=5,
 )
 argp.add_argument(
     "--midrange",
-    help="midrange emphasis",
+    help="midrange emphasis in 3dB units (default 5 = 0dB, 0 = 0 output)",
     type=np.float64,
     default=5,
 )
 argp.add_argument(
     "--treble",
-    help="treble emphasis",
+    help="treble emphasis in 3dB units (default 5 = 0dB, 0 = 0 output)",
     type=np.float64,
     default=5,
 )
 argp.add_argument(
     "--split1",
-    help="bass/mid split frequency",
+    help="bass/mid split frequency in Hz (default 150)",
     type=np.float64,
     default=150,
 )
 argp.add_argument(
     "--split2",
-    help="mid/treble split frequency",
+    help="mid/treble split frequency in Hz (default 2500)",
     type=np.float64,
     default=2500,
 )
 argp.add_argument(
     "--fir",
-    help="FIR filter width (must be odd)",
+    help="FIR filter width (must be odd; default 255, suggest 127..1023)",
     type=int,
-    default=127,
+    default=255,
+)
+argp.add_argument(
+    "--iir",
+    help="IIR filter width (must be even; suggest 32 / 16..64)",
+    type=int,
+    default=0,
 )
 argp.add_argument("wav", help="audio file")
 args = argp.parse_args()
@@ -114,17 +120,44 @@ rate, in_data = read_wav(args.wav)
 def make_filter(freqs, btype):
     global rate
     freqs = 2.0 * np.array(freqs, dtype=np.float64) / rate
-    return signal.firwin(args.fir, freqs, pass_zero=btype)
 
-filter_bass = make_filter(args.split1, 'lowpass')
-filter_mid = make_filter((args.split1, args.split2), 'bandpass')
-filter_treble = make_filter(args.split2, 'highpass')
+    if args.iir > 0:
+        assert args.iir % 2 == 0
+        return 'sos', signal.iirfilter(
+            args.iir,
+            freqs,
+            btype=btype,
+            rp=1.0,
+            rs=3.0,
+            ftype='ellip',
+            output = 'sos',
+        )
+    else:
+        assert args.fir > 0
+        assert args.fir % 2 == 1
+        return 'ba', signal.firwin(
+            args.fir,
+            freqs,
+            pass_zero=btype,
+        )
+
+def do_filter(ft, f, channels):
+    if ft == 'sos':
+        return signal.sosfilt(f, channels)
+    elif ft == 'ba':
+        return signal.lfilter(f, [1.], channels)
+    else:
+        raise Exception('bad filter type')
+
+ft, filter_bass = make_filter(args.split1, 'lowpass')
+ft, filter_mid = make_filter((args.split1, args.split2), 'bandpass')
+ft, filter_treble = make_filter(args.split2, 'highpass')
 
 # Apply filters.
 emphasis = (knob(args.bass), knob(args.midrange), knob(args.treble))
 filters = (filter_bass, filter_mid, filter_treble)
 channels = np.transpose(in_data)
-filtered = np.array(tuple(e * signal.lfilter(f, [1.], channels)
+filtered = np.array(tuple(e * do_filter(ft, f, channels)
             for e, f in zip(emphasis, filters)))
 gain = knob(args.volume, offset=9.0)
 result = gain * np.sum(filtered, axis=0)
